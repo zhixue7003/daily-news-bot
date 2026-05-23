@@ -165,9 +165,10 @@ class PushPlusNotifier:
 
 
 def format_news_content(all_news: Dict[str, List[Dict]]) -> str:
-    """格式化新闻内容为 Markdown"""
+    """格式化新闻内容为 Markdown（标题使用代码块，方便点击复制）"""
     today = datetime.now().strftime("%Y年%m月%d日")
     content = f"# 每日新闻早报 | {today}\n\n"
+    content += "> 💡 **点击代码块即可复制标题搜索**\n\n"
     icons = {
         "国情": "🇨🇳",
         "世界经济": "💰",
@@ -182,17 +183,19 @@ def format_news_content(all_news: Dict[str, List[Dict]]) -> str:
             continue
         for i, news in enumerate(news_list, 1):
             title = news.get("title", "")
-            link = news.get("link", "")
             source = news.get("source", "")
             pub_date = news.get("pub_date", "")
+            # 清理标题中的来源信息
             title = re.sub(r' - [^-]+$', '', title)
-            content += f"{i}. [{title}]({link})\n"
+            # 标题放入代码块，方便点击复制
+            content += f"{i}. 📰 **点击复制标题：**\n"
+            content += f"```\n{title}\n```\n"
             content += f"   > 💡 {source}"
             if pub_date:
                 content += f" · {pub_date}"
             content += "\n\n"
         content += "---\n\n"
-    content += "*数据来源：Google News*\n"
+    content += "*数据来源：Google News | 点击代码块复制标题搜索*\n"
     return content
 
 
