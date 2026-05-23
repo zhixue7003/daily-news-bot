@@ -52,9 +52,7 @@ class NewsFetcher:
         """从 NewsData.io 获取新闻"""
         if not NEWSDATA_API_KEY:
             return []
-
         try:
-            # 构建查询 URL
             encoded_keywords = urllib.parse.quote(keywords)
             url = (
                 f"https://newsdata.io/api/1/latest?"
@@ -63,17 +61,13 @@ class NewsFetcher:
                 f"language=zh&"
                 f"size={limit}"
             )
-
             req = urllib.request.Request(url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=15) as response:
                 data = json.loads(response.read().decode('utf-8'))
-
             if data.get("status") != "success":
                 return []
-
             results = data.get("results", [])
             news_list = []
-
             for item in results[:limit]:
                 news_list.append({
                     "title": item.get("title", ""),
@@ -81,9 +75,7 @@ class NewsFetcher:
                     "source": item.get("source_id", "未知来源"),
                     "pub_date": item.get("pubDate", "")[:10]
                 })
-
             return news_list
-
         except Exception as e:
             print(f"NewsData API 错误: {e}")
             return []
@@ -92,34 +84,25 @@ class NewsFetcher:
         """从 Google News RSS 获取新闻（备用方案）"""
         try:
             import xml.etree.ElementTree as ET
-
             encoded_keywords = urllib.parse.quote(keywords)
             url = f"https://news.google.com/rss/search?q={encoded_keywords}&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
-
             req = urllib.request.Request(url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=15) as response:
                 content = response.read().decode('utf-8')
-
-            # 解析 XML
             root = ET.fromstring(content)
-
             news_list = []
-            # 查找所有 item 元素
             for item in root.findall('.//item')[:limit]:
                 title = item.find('title')
                 link = item.find('link')
                 pub_date = item.find('pubDate')
                 source = item.find('source')
-
                 news_list.append({
                     "title": title.text if title is not None else "",
                     "link": link.text if link is not None else "",
                     "source": source.text if source is not None else "Google News",
                     "pub_date": self._format_date(pub_date.text if pub_date is not None else "")
                 })
-
             return news_list
-
         except Exception as e:
             print(f"Google News RSS 错误: {e}")
             return []
@@ -127,7 +110,6 @@ class NewsFetcher:
     def _format_date(self, date_str: str) -> str:
         """格式化日期"""
         try:
-            # 尝试解析 RSS 日期格式
             from email.utils import parsedate_to_datetime
             dt = parsedate_to_datetime(date_str)
             return dt.strftime("%Y-%m-%d")
@@ -137,15 +119,10 @@ class NewsFetcher:
     def fetch_category_news(self, category_name: str, config: Dict) -> List[Dict]:
         """获取指定分类的新闻"""
         keywords = config["keywords"]
-
-        # 优先使用 NewsData API
         news = self.fetch_from_newsdata(config.get("category", ""), keywords)
-
-        # 如果 NewsData 没有结果，使用 Google News RSS 作为备用
         if not news:
             news = self.fetch_from_google_news_rss(keywords)
-
-        return news[:5]  # 每个分类最多 5 条
+        return news[:5]
 
 
 class PushPlusNotifier:
@@ -161,7 +138,6 @@ class PushPlusNotifier:
         if not self.token:
             print("错误: 未设置 PUSHPLUS_TOKEN")
             return False
-
         try:
             data = {
                 "token": self.token,
@@ -169,24 +145,20 @@ class PushPlusNotifier:
                 "content": content,
                 "template": "markdown"
             }
-
             req = urllib.request.Request(
                 self.API_URL,
                 data=json.dumps(data).encode('utf-8'),
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-
             with urllib.request.urlopen(req, timeout=15) as response:
                 result = json.loads(response.read().decode('utf-8'))
-
             if result.get("code") == 200:
                 print(f"推送成功: {title}")
                 return True
             else:
                 print(f"推送失败: {result.get('msg', '未知错误')}")
                 return False
-
         except Exception as e:
             print(f"推送异常: {e}")
             return False
@@ -195,52 +167,32 @@ class PushPlusNotifier:
 def format_news_content(all_news: Dict[str, List[Dict]]) -> str:
     """格式化新闻内容为 Markdown"""
     today = datetime.now().strftime("%Y年%m月%d日")
-
-    content = f"""# 每日新闻早报 | {today}
-
-> 自动推送，精选四大领域热点
-
----
-
-"""
-
+    content = f"# 每日新闻早报 | {today}\n\n"
     icons = {
         "国情": "🇨🇳",
         "世界经济": "💰",
         "游戏圈": "🎮",
         "娱乐圈": "🎬"
     }
-
     for category_name, news_list in all_news.items():
         icon = icons.get(category_name, "📌")
         content += f"## {icon} {category_name}\n\n"
-
         if not news_list:
             content += "_暂无相关新闻_\n\n"
             continue
-
         for i, news in enumerate(news_list, 1):
             title = news.get("title", "")
             link = news.get("link", "")
             source = news.get("source", "")
             pub_date = news.get("pub_date", "")
-
-            # 清理标题中的来源信息
             title = re.sub(r' - [^-]+$', '', title)
-
             content += f"{i}. [{title}]({link})\n"
             content += f"   > 💡 {source}"
             if pub_date:
                 content += f" · {pub_date}"
             content += "\n\n"
-
         content += "---\n\n"
-
-    content += """
-*本消息由自动化脚本推送*
-*数据来源：NewsData.io / Google News*
-"""
-
+    content += "*数据来源：Google News*\n"
     return content
 
 
@@ -249,41 +201,28 @@ def main():
     print("=" * 50)
     print("开始获取每日新闻")
     print("=" * 50)
-
-    # 检查配置
     if not PUSHPLUS_TOKEN:
         print("警告: 未设置 PUSHPLUS_TOKEN 环境变量")
         print("请先在 GitHub Secrets 中设置 PUSHPLUS_TOKEN")
         return
-
-    # 初始化
     fetcher = NewsFetcher()
     notifier = PushPlusNotifier(PUSHPLUS_TOKEN)
-
-    # 获取各分类新闻
     all_news = {}
     for category_name, config in CATEGORIES.items():
         print(f"\n正在获取: {category_name}...")
         news = fetcher.fetch_category_news(category_name, config)
         all_news[category_name] = news
         print(f"   获取到 {len(news)} 条新闻")
-
-    # 格式化内容
     print("\n正在格式化消息...")
     content = format_news_content(all_news)
-
-    # 发送推送
     today = datetime.now().strftime("%m月%d日")
     title = f"每日新闻早报 | {today}"
-
     print("\n正在推送到微信...")
     success = notifier.send(title, content)
-
     if success:
         print("\n今日新闻推送完成！")
     else:
         print("\n推送失败，请检查配置")
-
     print("=" * 50)
 
 
