@@ -2,7 +2,9 @@ name: 每日新闻推送
 
 on:
   schedule:
+    # 北京时间早上 8:00（UTC 时间 0:00）
     - cron: '0 0 * * *'
+  # 允许手动触发测试
   workflow_dispatch:
 
 jobs:
@@ -11,17 +13,13 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
-        
+
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: 运行新闻推送脚本
         env:
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-          NEWSDATA_API_KEY: ${{ secrets.NEWSDATA_API_KEY }}
-        run: |
-          echo "开始执行每日新闻推送..."
-          python news_fetcher.py
-          echo "执行完成"
+        run: python news_fetcher.py
