@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-每日新闻抓取与推送脚本 - 修复版
+每日新闻抓取与推送脚本 - 优化版
 支持：国情、世界经济、游戏圈、娱乐圈顶流
-推送方式：PushPlus (微信)
 """
 
 import os
@@ -10,28 +9,28 @@ import json
 import re
 import urllib.request
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Dict
 
 # ============ 配置区域 ============
 PUSHPLUS_TOKEN = os.environ.get("PUSHPLUS_TOKEN", "")
 
-# 分类配置
+# 分类配置（扩大关键词范围）
 CATEGORIES = {
     "国情": {
-        "keywords": ["中国", "国内", "政策", "时政", "国务院", "人大", "两会", "习近平", "外交部", "发改委", "央行", "国防部", "台湾", "香港", "澳门"],
-        "exclude": ["明星", "娱乐", "游戏", "电影", "电视剧"]
+        "keywords": ["中国", "国内", "政策", "时政", "国务院", "人大", "两会", "习近平", "外交部", "发改委", "央行", "国防部", "台湾", "香港", "澳门", "北京", "上海", "广州", "深圳", "疫情", "疫苗", "教育", "高考", "大学", "就业", "房价", "养老", "医保", "社保", "交通", "天气", "地震", "洪水", "火灾", "事故", "犯罪", "警察", "法院", "法律"],
+        "exclude": []
     },
     "世界经济": {
-        "keywords": ["美联储", "美股", "港股", "A股", "全球经济", "油价", "黄金", "汇率", "通胀", "GDP", "华尔街", "纳斯达克", "道琼斯", "比特币", "加密货币", "特斯拉", "苹果", "微软", "谷歌", "亚马逊", "马云", "马化腾", "任正非"],
-        "exclude": ["游戏", "娱乐", "明星", "电影"]
+        "keywords": ["美联储", "美股", "港股", "A股", "全球经济", "油价", "黄金", "汇率", "通胀", "GDP", "华尔街", "纳斯达克", "道琼斯", "比特币", "加密货币", "特斯拉", "苹果", "微软", "谷歌", "亚马逊", "马云", "马化腾", "任正非", "马斯克", "巴菲特", "贝佐斯", "扎克伯格", "经济", "金融", "银行", "股票", "基金", "期货", "房地产", "楼市", "美元", "欧元", "日元", "人民币", "加息", "降息", "央行", "财报", "营收", "利润", "破产", "裁员", "失业", "就业", "物价", "CPI", "PPI", "贸易", "关税", "进出口", "石油", "天然气", "新能源", "电动车", "芯片", "半导体", "AI", "人工智能", "ChatGPT", "OpenAI"],
+        "exclude": []
     },
     "游戏圈": {
-        "keywords": ["游戏", "手游", "网游", "电竞", "Steam", "原神", "王者荣耀", "LOL", "英雄联盟", "黑神话", "Switch", "PS5", "Xbox", "腾讯游戏", "网易游戏", "米哈游", "暴雪", "网易", "腾讯", "字节跳动"],
+        "keywords": ["游戏", "手游", "网游", "电竞", "Steam", "原神", "王者荣耀", "LOL", "英雄联盟", "黑神话", "Switch", "PS5", "Xbox", "腾讯游戏", "网易游戏", "米哈游", "暴雪", "网易", "腾讯", "字节跳动", "B站", "哔哩哔哩", "主播", "直播", "吃鸡", "绝地求生", "和平精英", "CF", "穿越火线", "DNF", "地下城", "魔兽世界", "守望先锋", "炉石传说", "DOTA", "CSGO", "永劫无间", "蛋仔派对", "元梦之星", "崩坏", "星穹铁道", "绝区零", "鸣潮", "幻兽帕鲁", "博德之门", "塞尔达", "马里奥", "宝可梦", "GTA", "使命召唤", "战地", " FIFA", "NBA2K", "电竞", "LPL", "KPL", "TI", "S赛", "世界杯", "亚运会电竞"],
         "exclude": []
     },
     "娱乐圈": {
-        "keywords": ["明星", "娱乐", "电影", "电视剧", "综艺", "顶流", "艺人", "票房", "首映", "演唱会", "八卦", "出轨", "离婚", "结婚", "恋爱", "分手", "爆料", "瓜", "塌房", "封杀", "吸毒", "偷税"],
+        "keywords": ["明星", "娱乐", "电影", "电视剧", "综艺", "顶流", "艺人", "演员", "歌手", "导演", "编剧", "制片人", "票房", "首映", "点映", "路演", "杀青", "开机", "定档", "撤档", "改档", "上映", "播出", "收官", "大结局", "演唱会", "音乐节", "演唱会", "见面会", "粉丝", "应援", "打榜", "投票", "八卦", "爆料", "瓜", "塌房", "封杀", "雪藏", "解约", "签约", "代言", "广告", "红毯", "造型", "穿搭", "妆容", "发型", "减肥", "增肥", "整容", "素颜", "生图", "精修", "路透", "花絮", "预告片", "海报", "剧照", "MV", "单曲", "专辑", "EP", "OST", "主题曲", "片尾曲", "插曲", "翻唱", "改编", "原创", "抄袭", "侵权", "诉讼", "官司", "赔偿", "出轨", "离婚", "结婚", "恋爱", "分手", "复合", "官宣", "领证", "婚礼", "蜜月", "怀孕", "生子", "二胎", "三胎", "亲子", "萌娃", "童星", "星二代", "范冰冰", "杨幂", "赵丽颖", "迪丽热巴", "杨紫", "刘亦菲", "刘诗诗", "唐嫣", "杨颖", "倪妮", "周冬雨", "关晓彤", "赵露思", "虞书欣", "白鹿", "鞠婧祎", "杨超越", "肖战", "王一博", "易烊千玺", "王俊凯", "王源", "鹿晗", "黄子韬", "张艺兴", "蔡徐坤", "华晨宇", "周杰伦", "林俊杰", "薛之谦", "李荣浩", "邓紫棋", "张靓颖", "周深", "毛不易", "单依纯", "汪苏泷", "许嵩", "陈奕迅", "张学友", "刘德华", "梁朝伟", "周星驰", "成龙", "李连杰", "甄子丹", "吴京", "沈腾", "马丽", "贾玲", "张小斐", "黄渤", "王宝强", "徐峥", "宁浩", "陈思诚", "张艺谋", "陈凯歌", "冯小刚", "贾樟柯", "王小帅", "娄烨", "毕赣", "文牧野", "郭帆", "饺子", "宫崎骏", "新海诚", "诺兰", "卡梅隆", "斯皮尔伯格"],
         "exclude": []
     }
 }
@@ -49,15 +48,14 @@ class HotTopicsFetcher:
         }
 
     def safe_get_hot(self, value) -> int:
-        """安全获取热度值（转换为整数）"""
+        """安全获取热度值"""
         try:
             if value is None:
                 return 0
             if isinstance(value, int):
                 return value
             if isinstance(value, str):
-                # 移除可能的单位（万、亿等）
-                value = value.replace('万', '').replace('亿', '')
+                value = value.replace('万', '').replace('亿', '').replace(',', '')
                 return int(float(value))
             return int(value)
         except:
@@ -73,7 +71,7 @@ class HotTopicsFetcher:
             
             topics = []
             if 'data' in data:
-                for item in data['data'][:20]:
+                for item in data['data'][:30]:
                     target = item.get('target', {})
                     topic = {
                         "title": target.get('title', ''),
@@ -100,7 +98,7 @@ class HotTopicsFetcher:
             topics = []
             if 'data' in data and 'cards' in data['data']:
                 for card in data['data']['cards']:
-                    for item in card.get('content', [])[:25]:
+                    for item in card.get('content', [])[:30]:
                         topic = {
                             "title": item.get('word', ''),
                             "hot": self.safe_get_hot(item.get('hotScore', 0)),
@@ -125,7 +123,7 @@ class HotTopicsFetcher:
             
             topics = []
             if 'data' in data:
-                for item in data['data'][:20]:
+                for item in data['data'][:25]:
                     topic = {
                         "title": item.get('Title', ''),
                         "hot": self.safe_get_hot(item.get('HotValue', 0)),
@@ -141,9 +139,8 @@ class HotTopicsFetcher:
             return []
 
     def fetch_weibo_hot(self) -> List[Dict]:
-        """获取微博热搜（备用方案：通过第三方API）"""
+        """获取微博热搜"""
         try:
-            # 使用公开的微博热搜API
             url = "https://api.oioweb.cn/api/common/weiboHot"
             req = urllib.request.Request(url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=10) as response:
@@ -151,7 +148,7 @@ class HotTopicsFetcher:
             
             topics = []
             if data.get('code') == 200 and 'result' in data:
-                for item in data['result'][:25]:
+                for item in data['result'][:30]:
                     topic = {
                         "title": item.get('word', ''),
                         "hot": self.safe_get_hot(item.get('hot', 0)),
@@ -170,13 +167,11 @@ class HotTopicsFetcher:
         """获取所有平台热门话题"""
         print("正在获取全球热门话题...")
         
-        # 获取各平台数据
         zhihu = self.fetch_zhihu_hot()
         baidu = self.fetch_baidu_hot()
         toutiao = self.fetch_toutiao_hot()
         weibo = self.fetch_weibo_hot()
         
-        # 合并所有话题
         all_topics = zhihu + baidu + toutiao + weibo
         
         # 按热度排序
@@ -195,9 +190,11 @@ class HotTopicsFetcher:
         return unique_topics
 
     def classify_topics(self, topics: List[Dict]) -> Dict[str, List[Dict]]:
-        """将话题分类"""
+        """智能分类话题"""
         classified = {cat: [] for cat in CATEGORIES.keys()}
+        unclassified = []
         
+        # 第一轮：按关键词分类
         for topic in topics:
             title = topic['title']
             matched = False
@@ -209,11 +206,58 @@ class HotTopicsFetcher:
                         matched = True
                         break
             
-            if not matched and len(classified['国情']) < 5:
+            if not matched:
+                unclassified.append(topic)
+        
+        print(f"\n分类结果（第一轮）：")
+        for cat, items in classified.items():
+            print(f"  {cat}: {len(items)} 条")
+        print(f"  未分类: {len(unclassified)} 条")
+        
+        # 第二轮：智能分配未分类话题
+        # 根据话题内容智能判断
+        for topic in unclassified[:20]:  # 只处理前20条未分类
+            title = topic['title']
+            
+            # 娱乐相关
+            if any(kw in title for kw in ["新剧", "新片", "上映", "播出", "杀青", "开机", "红毯", "造型", "演唱会", "音乐节", "粉丝", "应援"]):
+                if len(classified['娱乐圈']) < 5:
+                    classified['娱乐圈'].append(topic)
+                    continue
+            
+            # 游戏相关
+            if any(kw in title for kw in ["上线", "公测", "内测", "版本更新", "新赛季", "新英雄", "新皮肤", "职业选手", "战队", "比赛"]):
+                if len(classified['游戏圈']) < 5:
+                    classified['游戏圈'].append(topic)
+                    continue
+            
+            # 经济相关
+            if any(kw in title for kw in ["涨价", "降价", "销量", "市值", "股价", "暴跌", "暴涨", "创新高", "跌破", "收购", "合并", "投资", "融资", "上市", "退市"]):
+                if len(classified['世界经济']) < 5:
+                    classified['世界经济'].append(topic)
+                    continue
+            
+            # 其他放入国情
+            if len(classified['国情']) < 5:
                 classified['国情'].append(topic)
         
+        # 第三轮：确保每个分类至少有内容
+        # 如果某个分类为空，从其他分类借调
+        min_items = 3  # 每个分类最少3条
+        
+        for cat in ['世界经济', '游戏圈', '娱乐圈']:
+            if len(classified[cat]) < min_items:
+                # 从国情借调
+                while len(classified[cat]) < min_items and len(classified['国情']) > min_items:
+                    classified[cat].append(classified['国情'].pop())
+        
+        # 每个分类最多保留5条
         for cat in classified:
             classified[cat] = classified[cat][:5]
+        
+        print(f"\n分类结果（最终）：")
+        for cat, items in classified.items():
+            print(f"  {cat}: {len(items)} 条")
         
         return classified
 
@@ -279,7 +323,6 @@ def format_news_content(classified_news: Dict[str, List[Dict]]) -> str:
             source = news.get("source", "")
             hot = news.get("hot", 0)
             
-            # 热度格式化（已确保hot是整数）
             if hot > 10000:
                 hot_str = f"{hot/10000:.1f}万"
             else:
@@ -305,22 +348,18 @@ def main():
         print("❌ 错误: 未设置 PUSHPLUS_TOKEN 环境变量")
         return
     
-    # 获取热门话题
     fetcher = HotTopicsFetcher()
     all_topics = fetcher.fetch_all_topics()
     
-    # 分类
-    print("\n正在分类话题...")
+    if not all_topics:
+        print("❌ 未获取到任何话题，请检查网络连接")
+        return
+    
     classified = fetcher.classify_topics(all_topics)
     
-    for cat, items in classified.items():
-        print(f"  {cat}: {len(items)} 条")
-    
-    # 格式化内容
     print("\n正在格式化消息...")
     content = format_news_content(classified)
     
-    # 推送
     today = datetime.now().strftime("%m月%d日")
     title = f"🔥 每日热门话题早报 | {today}"
     
