@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-每日新闻抓取与推送脚本
+每日新闻抓取与推送脚本 - 权威新闻+八卦版
 支持：国情、世界经济、游戏圈、娱乐圈顶流
 推送方式：PushPlus (微信)
 特点：
 - 每天早上8点准时发送
-- 全球热门话题聚合（国内外）
-- 只推送一周内最新、最热门新闻
+- 权威媒体+社交平台聚合
+- 只推送一周内最新、最热门
 - 无链接，标题加粗方便长按复制
-- 全局性、权威性新闻源
 """
 
 import os
@@ -25,26 +24,26 @@ PUSHPLUS_TOKEN = os.environ.get("PUSHPLUS_TOKEN", "")
 # 分类配置
 CATEGORIES = {
     "国情": {
-        "keywords": ["中国", "国内", "政策", "时政", "国务院", "人大", "两会", "习近平", "外交部", "发改委", "央行"],
-        "exclude": ["明星", "娱乐", "游戏"]
+        "keywords": ["中国", "国内", "政策", "时政", "国务院", "人大", "两会", "习近平", "外交部", "发改委", "央行", "国防部", "台湾", "香港", "澳门"],
+        "exclude": ["明星", "娱乐", "游戏", "电影", "电视剧"]
     },
     "世界经济": {
-        "keywords": ["美联储", "美股", "港股", "A股", "全球经济", "油价", "黄金", "汇率", "通胀", "GDP", "华尔街", "纳斯达克", "道琼斯"],
-        "exclude": ["游戏", "娱乐", "明星"]
+        "keywords": ["美联储", "美股", "港股", "A股", "全球经济", "油价", "黄金", "汇率", "通胀", "GDP", "华尔街", "纳斯达克", "道琼斯", "比特币", "加密货币", "特斯拉", "苹果", "微软", "谷歌", "亚马逊", "马云", "马化腾", "任正非"],
+        "exclude": ["游戏", "娱乐", "明星", "电影"]
     },
     "游戏圈": {
-        "keywords": ["游戏", "手游", "网游", "电竞", "Steam", "原神", "王者荣耀", "LOL", "英雄联盟", "黑神话", "Switch", "PS5", "Xbox"],
+        "keywords": ["游戏", "手游", "网游", "电竞", "Steam", "原神", "王者荣耀", "LOL", "英雄联盟", "黑神话", "Switch", "PS5", "Xbox", "腾讯游戏", "网易游戏", "米哈游", "暴雪", "网易", "腾讯", "字节跳动"],
         "exclude": []
     },
     "娱乐圈": {
-        "keywords": ["明星", "娱乐", "电影", "电视剧", "综艺", "顶流", "艺人", "票房", "首映", "演唱会", "八卦"],
+        "keywords": ["明星", "娱乐", "电影", "电视剧", "综艺", "顶流", "艺人", "票房", "首映", "演唱会", "八卦", "出轨", "离婚", "结婚", "恋爱", "分手", "爆料", "瓜", "塌房", "封杀", "吸毒", "偷税", "范冰冰", "郑爽", "吴亦凡", "李易峰", "邓伦", "薇娅", "李佳琦", "杨幂", "赵丽颖", "迪丽热巴", "肖战", "王一博", "易烊千玺", "王俊凯", "王源", "鹿晗", "黄子韬", "张艺兴", "蔡徐坤", "华晨宇", "周杰伦", "林俊杰", "薛之谦", "李荣浩", "邓紫棋", "张靓颖", "周深", "毛不易", "单依纯"],
         "exclude": []
     }
 }
 
 
 class HotTopicsFetcher:
-    """全球热门话题抓取器（聚合多个平台）"""
+    """热门话题抓取器（权威媒体+社交平台）"""
 
     def __init__(self):
         self.headers = {
@@ -53,7 +52,7 @@ class HotTopicsFetcher:
         self.all_topics = []
 
     def fetch_weibo_hot(self) -> List[Dict]:
-        """获取微博热搜（国内最实时）"""
+        """获取微博热搜（国内最实时，瓜最多）"""
         try:
             url = "https://weibo.com/ajax/side/hotSearch"
             req = urllib.request.Request(url, headers=self.headers)
@@ -62,7 +61,7 @@ class HotTopicsFetcher:
             
             topics = []
             if 'data' in data and 'realtime' in data['data']:
-                for item in data['data']['realtime'][:20]:
+                for item in data['data']['realtime'][:30]:
                     topic = {
                         "title": item.get('word', ''),
                         "hot": item.get('raw_hot', 0),
@@ -78,7 +77,7 @@ class HotTopicsFetcher:
             return []
 
     def fetch_zhihu_hot(self) -> List[Dict]:
-        """获取知乎热榜（深度话题）"""
+        """获取知乎热榜（深度话题，有营养）"""
         try:
             url = "https://www.zhihu.com/api/v3/feed/topstory/hot-list-web"
             req = urllib.request.Request(url, headers=self.headers)
@@ -87,7 +86,7 @@ class HotTopicsFetcher:
             
             topics = []
             if 'data' in data:
-                for item in data['data'][:15]:
+                for item in data['data'][:20]:
                     target = item.get('target', {})
                     topic = {
                         "title": target.get('title', ''),
@@ -113,7 +112,7 @@ class HotTopicsFetcher:
             topics = []
             if 'data' in data and 'cards' in data['data']:
                 for card in data['data']['cards']:
-                    for item in card.get('content', [])[:15]:
+                    for item in card.get('content', [])[:20]:
                         topic = {
                             "title": item.get('word', ''),
                             "hot": item.get('hotScore', 0),
@@ -127,28 +126,52 @@ class HotTopicsFetcher:
             print(f"百度热搜获取失败: {e}")
             return []
 
-    def fetch_bilibili_hot(self) -> List[Dict]:
-        """获取B站热门（年轻人关注）"""
+    def fetch_douyin_hot(self) -> List[Dict]:
+        """获取抖音热点（短视频热点，八卦多）"""
         try:
-            url = "https://api.bilibili.com/x/web-interface/popular"
+            url = "https://www.douyin.com/aweme/v1/web/hot/search/list/"
             req = urllib.request.Request(url, headers=self.headers)
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = json.loads(response.read().decode('utf-8'))
             
             topics = []
-            if 'data' in data and 'list' in data['data']:
-                for item in data['data']['list'][:10]:
+            if 'data' in data and 'word_list' in data['data']:
+                for item in data['data']['word_list'][:15]:
                     topic = {
-                        "title": item.get('title', ''),
-                        "hot": item.get('stat', {}).get('view', 0),
-                        "source": "B站热门",
+                        "title": item.get('word', ''),
+                        "hot": item.get('hot_value', 0),
+                        "source": "抖音热点",
                         "time": datetime.now().strftime("%Y-%m-%d")
                     }
                     if topic['title']:
                         topics.append(topic)
             return topics
         except Exception as e:
-            print(f"B站热门获取失败: {e}")
+            print(f"抖音热点获取失败: {e}")
+            return []
+
+    def fetch_toutiao_hot(self) -> List[Dict]:
+        """获取今日头条热榜（新闻资讯）"""
+        try:
+            url = "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
+            req = urllib.request.Request(url, headers=self.headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode('utf-8'))
+            
+            topics = []
+            if 'data' in data:
+                for item in data['data'][:15]:
+                    topic = {
+                        "title": item.get('Title', ''),
+                        "hot": item.get('HotValue', 0),
+                        "source": "今日头条",
+                        "time": datetime.now().strftime("%Y-%m-%d")
+                    }
+                    if topic['title']:
+                        topics.append(topic)
+            return topics
+        except Exception as e:
+            print(f"今日头条获取失败: {e}")
             return []
 
     def fetch_all_topics(self) -> List[Dict]:
@@ -159,10 +182,11 @@ class HotTopicsFetcher:
         weibo = self.fetch_weibo_hot()
         zhihu = self.fetch_zhihu_hot()
         baidu = self.fetch_baidu_hot()
-        bilibili = self.fetch_bilibili_hot()
+        douyin = self.fetch_douyin_hot()
+        toutiao = self.fetch_toutiao_hot()
         
         # 合并所有话题
-        all_topics = weibo + zhihu + baidu + bilibili
+        all_topics = weibo + zhihu + baidu + douyin + toutiao
         
         # 按热度排序
         all_topics.sort(key=lambda x: x.get('hot', 0), reverse=True)
@@ -196,9 +220,16 @@ class HotTopicsFetcher:
                         matched = True
                         break
             
-            # 如果没有匹配到任何类别，放入"国情"作为默认
-            if not matched and len(classified['国情']) < 10:
-                classified['国情'].append(topic)
+            # 如果没有匹配到任何类别，根据内容智能判断
+            if not matched:
+                if any(kw in title for kw in ["游戏", "电竞", "手游", "Steam", "原神"]):
+                    if len(classified['游戏圈']) < 5:
+                        classified['游戏圈'].append(topic)
+                elif any(kw in title for kw in ["明星", "演员", "歌手", "导演", "票房", "综艺", "电视剧", "电影", "瓜", "出轨", "离婚", "结婚"]):
+                    if len(classified['娱乐圈']) < 5:
+                        classified['娱乐圈'].append(topic)
+                elif len(classified['国情']) < 5:
+                    classified['国情'].append(topic)
         
         # 每个类别最多保留5条
         for cat in classified:
@@ -251,7 +282,7 @@ def format_news_content(classified_news: Dict[str, List[Dict]]) -> str:
     
     content = f"# 🔥 每日热门话题早报 | {today}\n\n"
     content += "> 📱 长按标题即可复制，去百度/谷歌/知乎搜索详情\n"
-    content += "> 🌍 数据来源：微博热搜、知乎热榜、百度热搜、B站热门\n\n"
+    content += "> 🌍 数据来源：微博热搜、知乎热榜、百度热搜、抖音热点、今日头条\n\n"
     
     icons = {"国情": "🇨🇳", "世界经济": "💰", "游戏圈": "🎮", "娱乐圈": "🎬"}
     
