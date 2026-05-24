@@ -231,3 +231,21 @@ def main():
 
 if __name__ == "__main__":
     main()
+name: 每日新闻推送
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # UTC 0:00 = 北京时间 8:00
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  push-news:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+        run: python news_fetcher.py
